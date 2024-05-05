@@ -22,11 +22,24 @@ class Pipo(db.Model):
     address = db.Column(db.String(120))
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
-    active = db.Column(db.Boolean, default=True)
+    active = db.Column(db.Boolean, default=False)
     free = db.Column(db.Boolean)
     disabled = db.Column(db.Boolean)
     toiletpaper = db.Column(db.Boolean)
     babychanger = db.Column(db.Boolean)
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "pipo_name": self.pipo_name,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "active": self.active,
+            "free": self.free,
+            "disabled": self.disabled,
+            "toiletpaper": self.toiletpaper,
+            "babychanger": self.babychanger
+        }
 
 
 class Comment(db.Model):
@@ -44,4 +57,3 @@ class Rating(db.Model):
     stars = db.Column(db.Integer)
     pipo_id = db.Column(db.Integer, db.ForeignKey('pipos.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-
