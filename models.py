@@ -31,6 +31,7 @@ class Pipo(db.Model):
     def serialize(self):
         return {
             "id": self.id,
+            "address":self.address,
             "pipo_name": self.pipo_name,
             "latitude": self.latitude,
             "longitude": self.longitude,

@@ -43,6 +43,8 @@ def add_pipo():
         return jsonify({"msg": "Señalar si cuenta con papel de baño"}), 400
     if not 'babychanger' in pipo_info:
         return jsonify({"msg": "Señala si hay mudador para bebés"}), 400
+    if not 'address' in pipo_info:
+        return jsonify({"msg": "Es necesario señalar la dirección del baño"}), 400
     elif pipo_info["longitude"] == "":
         return jsonify({"msg": "longitude is required"}), 400
     elif pipo_info["latitude"] == "":
@@ -57,6 +59,8 @@ def add_pipo():
         return jsonify({"msg": "Señalar si cuenta con papel de baño"}), 400
     elif pipo_info["babychanger"] is False:
         return jsonify({"msg": "Señala si hay mudador para bebés"}), 400
+    elif pipo_info["address"] == "":
+        return jsonify({"msg": "Es necesario señalar la dirección del baño"}), 400
 
 
     pipo = Pipo(
@@ -66,13 +70,26 @@ def add_pipo():
         free=bool(pipo_info["free"]),
         disabled=bool(pipo_info["disabled"]),
         toiletpaper=bool(pipo_info["toiletpaper"]),
-        babychanger=bool(pipo_info["babychanger"])
+        babychanger=bool(pipo_info["babychanger"]),
+        address=pipo_info["address"]
     )
 
     db.session.add(pipo)
     db.session.commit()
 
     return jsonify({"msg": "Location added succesfully"})
+
+@app.route('/pipos/<int:id>/active', methods=['GET'])
+def active_pipo(id):
+    
+    pipo = Pipo.query.get(id)
+    if not pipo:
+        return jsonify({"msg": "Pipo Not Found"}), 404
+
+    pipo.active = True
+    db.session.commit()
+
+    return jsonify({"msg": f"Pipo {id} fue activado con éxito"}), 200
 
 with app.app_context():
     db.create_all()
