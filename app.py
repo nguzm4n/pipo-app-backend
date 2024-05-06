@@ -2,9 +2,11 @@ import os
 from flask import Flask, jsonify, request, json
 from flask_migrate import Migrate
 from flask_cors import CORS
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # Para leer el archivo .env
+from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, Pipo, Comment, Rating
-
+import datetime
 
 load_dotenv()
 
@@ -12,66 +14,64 @@ app = Flask(__name__)
 app.config['DEBUG'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI')
+app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
 
 db.init_app(app)
+jwt = JWTManager(app)
 Migrate(app, db)
-CORS(app)
+CORS(app)  # Se evita que se bloqueen las peticiones
+
+
+@app.route('/token', methods=['GET'])
+def token():
+    data = {
+        "access token": create_access_token(identity="teste@email.com")
+    }  
+
+    return jsonify(data), 200
 
 
 @app.route('/pipos', methods=['GET'])
 def get_pipos():
     pipos = Pipo.query.all()
-    pipos = list(map(lambda pipo: pipo.serialize(),pipos))
+    pipos = list(map(lambda pipo: pipo.serialize(), pipos))
     return jsonify(pipos), 200
 
 
 @app.route('/pipos', methods=['POST'])
+@jwt_required()  # Ruta privada
 def add_pipo():
     pipo_info = request.json
+    id = get_jwt_identity()
+
 
     if not 'pipo_name' in pipo_info:
         return jsonify({"msg": "name is required"}), 400
+    elif pipo_info["pipo_name"] == "":
+        return jsonify({"msg": "name is required"}), 400
     elif not 'longitude' in pipo_info:
+        return jsonify({"msg": "longitude is required"}), 400
+    elif pipo_info["longitude"] == "":
         return jsonify({"msg": "longitude is required"}), 400
     elif not 'latitude' in pipo_info:
         return jsonify({"msg": "latitude is required"}), 400
-    elif not 'free' in pipo_info:
-        return jsonify({"msg": "Es necesario señalar si el baño es gratuito"}), 400
-    if not 'disabled' in pipo_info:
-        return jsonify({"msg": "Señalar si es apto para discapacitados"}), 400
-    if not 'toiletpaper' in pipo_info:
-        return jsonify({"msg": "Señalar si cuenta con papel de baño"}), 400
-    if not 'babychanger' in pipo_info:
-        return jsonify({"msg": "Señala si hay mudador para bebés"}), 400
-    if not 'address' in pipo_info:
-        return jsonify({"msg": "Es necesario señalar la dirección del baño"}), 400
-    elif pipo_info["longitude"] == "":
-        return jsonify({"msg": "longitude is required"}), 400
     elif pipo_info["latitude"] == "":
         return jsonify({"msg": "latitude is required"}), 400
-    elif pipo_info["pipo_name"] == "":
-        return jsonify({"msg": "name is required"}), 400
-    elif pipo_info["free"] is False:
-        return jsonify({"msg": "Es necesario señalar si el baño es gratuito"}), 400
-    elif pipo_info["disabled"] is False:
-        return jsonify({"msg": "Señalar si es apto para discapacitados"}), 400
-    elif pipo_info["toiletpaper"] is False:
-        return jsonify({"msg": "Señalar si cuenta con papel de baño"}), 400
-    elif pipo_info["babychanger"] is False:
-        return jsonify({"msg": "Señala si hay mudador para bebés"}), 400
+    elif not 'address' in pipo_info:
+        return jsonify({"msg": "Address is required"}), 400
     elif pipo_info["address"] == "":
-        return jsonify({"msg": "Es necesario señalar la dirección del baño"}), 400
-
+        return jsonify({"msg": "Address is required"}), 400
 
     pipo = Pipo(
         pipo_name=pipo_info["pipo_name"],
         longitude=float(pipo_info["longitude"]),
         latitude=float(pipo_info["latitude"]),
-        free=bool(pipo_info["free"]),
-        disabled=bool(pipo_info["disabled"]),
-        toiletpaper=bool(pipo_info["toiletpaper"]),
-        babychanger=bool(pipo_info["babychanger"]),
-        address=pipo_info["address"]
+        free=False if not "free" in pipo_info else True,
+        disabled=False if not "disabled" in pipo_info else True,
+        toiletpaper=False if not "toiletpaper" in pipo_info else True,
+        babychanger=False if not "babychanger" in pipo_info else True,
+        address=pipo_info["address"],
+        user_id=id
     )
 
     db.session.add(pipo)
@@ -79,9 +79,10 @@ def add_pipo():
 
     return jsonify({"msg": "Location added succesfully"})
 
+
 @app.route('/pipos/<int:id>/active', methods=['GET'])
 def active_pipo(id):
-    
+
     pipo = Pipo.query.get(id)
     if not pipo:
         return jsonify({"msg": "Pipo Not Found"}), 404
@@ -91,10 +92,111 @@ def active_pipo(id):
 
     return jsonify({"msg": f"Pipo {id} fue activado con éxito"}), 200
 
+
+@app.route('/pipos/<int:id>/delete', methods=['DELETE'])
+@jwt_required()  # Ruta privada
+def delete_pipo(id):
+    pipo = Pipo.query.get(id)
+    if not pipo:
+        return jsonify({"msg": "Pipo Not Found"}), 404
+
+    db.session.delete(pipo)
+    db.session.commit()
+
+    return jsonify({"msg": f"Pipo con id N°{id} se ha eliminado exitosamente"})
+
+
+@app.route('/singup', methods=['POST'])
+def sign_up():
+    username = request.json.get('username')
+    password = request.json.get('password')
+    email = request.json.get('email')
+    name = request.json.get('name')
+    birthday = request.json.get('birthday')
+
+    if not username:
+        return jsonify({"msg": "username is required"}), 400
+    elif username == "":
+        return jsonify({"msg": "username is required"}), 400
+    elif not password:
+        return jsonify({"msg": "password is required"}), 400
+    elif password == "":
+        return jsonify({"msg": "password is required"}), 400
+    elif not email:
+        return jsonify({"msg": "email is required"}), 400
+    elif email == "":
+        return jsonify({"msg": "email is required"}), 400
+    elif not name:
+        return jsonify({"msg": "name is required"}), 400
+    elif name == "":
+        return jsonify({"msg": "name is required"}), 400
+    elif not birthday:
+        return jsonify({"msg": "birthday is required"}), 400
+
+    user_found = User.query.filter_by(email=email).first()
+    if user_found:
+        return jsonify({"message": "Email is already on use"}), 400
+
+    user_found = User.query.filter_by(username=username).first()
+    if user_found:
+        return jsonify({"message": "Username is already on use"}), 400
+
+    user = User(
+        username=username,
+        password=generate_password_hash(password),
+        email=email,
+        name=name,
+        birthday=birthday
+    )
+
+    user.save()
+    if user:
+        expires = datetime.timedelta(hours=1)
+        access_token = create_access_token(identity=user.id, expires_delta=expires)
+        datos = {
+            "access token": access_token,
+            "user": user.serialize()
+
+        }
+        return jsonify(datos), 201
+
+
+@app.route('/login', methods=["POST"])
+def login():
+
+    password = request.json.get('password')
+    email = request.json.get('email')
+
+
+    if not password:
+        return jsonify({"msg": "password is required"}), 400
+    elif password == "":
+        return jsonify({"msg": "password is required"}), 400
+    elif not email:
+        return jsonify({"msg": "email is required"}), 400
+    elif email == "":
+        return jsonify({"msg": "email is required"}), 400
+
+
+    user_found = User.query.filter_by(email=email).first()
+
+    if not user_found:
+        return jsonify({"message": "email or password is not correct"}), 401
+
+    if not check_password_hash(user_found.password, password):
+        return jsonify({"message": "email or password is not correct"}), 401
+
+    expires = datetime.timedelta(hours=1)
+    access_token = create_access_token(identity=user_found.id, expires_delta=expires)
+    datos = {
+        "access token": access_token,
+        "user": user_found.serialize()
+        }
+    return jsonify(datos), 201
+
 with app.app_context():
     db.create_all()
 
 
 if __name__ == '__main__':
     app.run()
-

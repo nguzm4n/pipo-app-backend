@@ -3,10 +3,13 @@ db = SQLAlchemy()
 
 
 class User(db.Model):
+    """
+    Tabla correspondiente a los usuarios
+    """
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(120), nullable=False)
+    password = db.Column(db.String(255), nullable=False)
     avatar = db.Column(db.String(120))
     email = db.Column(db.String(120), unique=True, nullable=False)
     name = db.Column(db.String(120), nullable=False)
@@ -14,19 +17,37 @@ class User(db.Model):
     active = db.Column(db.Boolean, default=True)
     admin = db.Column(db.Boolean, default=False)
 
+    def serialize(self):
+        return {
+            "id": self.id,
+            "username":self.username,
+            "avatar": self.avatar,
+            "email": self.email,
+            "birthday": self.birthday,
+        }
+
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+
 
 class Pipo(db.Model):
     __tablename__ = 'pipos'
     id = db.Column(db.Integer, primary_key=True)
     pipo_name = db.Column(db.String(120))
-    address = db.Column(db.String(120))
+    address = db.Column(db.String(300))
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
     active = db.Column(db.Boolean, default=False)
-    free = db.Column(db.Boolean)
-    disabled = db.Column(db.Boolean)
-    toiletpaper = db.Column(db.Boolean)
-    babychanger = db.Column(db.Boolean)
+    free = db.Column(db.Boolean, default=False)
+    disabled = db.Column(db.Boolean, default=False)
+    toiletpaper = db.Column(db.Boolean, default=False)
+    babychanger = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user = db.relationship('User')
+    comments= db.relationship('Comment', backref="pipo")
+    ratings= db.relationship('Rating', backref="pipo")
+
 
     def serialize(self):
         return {
