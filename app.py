@@ -26,7 +26,7 @@ CORS(app)  # Se evita que se bloqueen las peticiones
 def token():
     data = {
         "access token": create_access_token(identity="teste@email.com")
-    }  
+    }
 
     return jsonify(data), 200
 
@@ -37,13 +37,19 @@ def get_pipos():
     pipos = list(map(lambda pipo: pipo.serialize(), pipos))
     return jsonify(pipos), 200
 
+@app.route('/pipos/<int:id>/detail', methods=['GET'])
+def get_pipos_full(id):
+    pipo = Pipo.query.get(id)
+    if not pipo:
+        return jsonify({"msg": "Pipo Not Found"}), 404
+    return jsonify(pipo.serialize_with_comment()), 200
+
 
 @app.route('/pipos', methods=['POST'])
 @jwt_required()  # Ruta privada
 def add_pipo():
     pipo_info = request.json
     id = get_jwt_identity()
-
 
     if not 'pipo_name' in pipo_info:
         return jsonify({"msg": "name is required"}), 400
@@ -152,7 +158,8 @@ def sign_up():
     user.save()
     if user:
         expires = datetime.timedelta(hours=1)
-        access_token = create_access_token(identity=user.id, expires_delta=expires)
+        access_token = create_access_token(
+            identity=user.id, expires_delta=expires)
         datos = {
             "access token": access_token,
             "user": user.serialize()
@@ -167,7 +174,6 @@ def login():
     password = request.json.get('password')
     email = request.json.get('email')
 
-
     if not password:
         return jsonify({"msg": "password is required"}), 400
     elif password == "":
@@ -177,7 +183,6 @@ def login():
     elif email == "":
         return jsonify({"msg": "email is required"}), 400
 
-
     user_found = User.query.filter_by(email=email).first()
 
     if not user_found:
@@ -186,13 +191,77 @@ def login():
     if not check_password_hash(user_found.password, password):
         return jsonify({"message": "email or password is not correct"}), 401
 
-    expires = datetime.timedelta(hours=1)
-    access_token = create_access_token(identity=user_found.id, expires_delta=expires)
+    expires = datetime.timedelta(hours=72)
+    access_token = create_access_token(
+        identity=user_found.id, expires_delta=expires)
     datos = {
         "access token": access_token,
         "user": user_found.serialize()
-        }
+    }
     return jsonify(datos), 201
+
+
+@app.route('/pipo/<int:id>/rate', methods=["POST"])
+@jwt_required()  # Ruta privada
+def add_rating(id):
+    pipo = Pipo.query.get(id)
+    if not pipo:
+        return jsonify({"msg": "Pipo Not Found"}), 404
+
+    rating = request.json
+    user_id = get_jwt_identity()
+
+    rate = Rating.query.filter_by(user_id=user_id, pipo_id=pipo.id).first()
+
+    if not rate:
+
+        new_rating = Rating(
+            stars=int(rating["stars"]),
+            user_id=user_id,
+            pipo_id=pipo.id
+        )
+
+        db.session.add(new_rating)
+        db.session.commit()
+
+    else:
+        rate.stars = rating["stars"]
+        db.session.commit()
+        
+    return jsonify({"msg": "Pipo Succesfully Rated "})
+
+
+
+@app.route('/pipo/<int:id>/comment', methods=["POST"])
+@jwt_required()  # Ruta privada
+def add_comment(id):
+    pipo = Pipo.query.get(id)
+    if not pipo:
+        return jsonify({"msg": "Pipo Not Found"}), 404
+
+    comment = request.json
+    user_id = get_jwt_identity()
+
+    comentario = Comment.query.filter_by(user_id=user_id, pipo_id=pipo.id).first()
+
+    if not comentario:
+
+        new_comment = Comment(
+            comment=comment["comment"],
+            user_id=user_id,
+            pipo_id=pipo.id,
+            date=datetime.datetime.now()
+
+        )
+
+        db.session.add(new_comment)
+        db.session.commit()
+
+    else:
+        comentario.comment = comment["comment"]
+        db.session.commit()
+
+    return jsonify({"msg": "Pipo Succesfully Commented  "})
 
 with app.app_context():
     db.create_all()
