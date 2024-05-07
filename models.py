@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from math import floor
 db = SQLAlchemy()
 
 
@@ -16,11 +17,12 @@ class User(db.Model):
     birthday = db.Column(db.String(120), nullable=False)
     active = db.Column(db.Boolean, default=True)
     admin = db.Column(db.Boolean, default=False)
+    comments = db.relationship('Comment', backref="user")
 
     def serialize(self):
         return {
             "id": self.id,
-            "username":self.username,
+            "username": self.username,
             "avatar": self.avatar,
             "email": self.email,
             "birthday": self.birthday,
@@ -45,11 +47,27 @@ class Pipo(db.Model):
     babychanger = db.Column(db.Boolean, default=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     user = db.relationship('User')
-    comments= db.relationship('Comment', backref="pipo")
-    ratings= db.relationship('Rating', backref="pipo")
+    comments = db.relationship('Comment', backref="pipo")
+    ratings = db.relationship('Rating', backref="pipo")
 
 
     def serialize(self):
+        return {
+            "id": self.id,
+            "address": self.address,
+            "pipo_name": self.pipo_name,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "active": self.active,
+            "free": self.free,
+            "disabled": self.disabled,
+            "toiletpaper": self.toiletpaper,
+            "babychanger": self.babychanger,
+            "stars": self.get_rating()
+
+        }
+
+    def serialize_with_comment(self):
         return {
             "id": self.id,
             "address":self.address,
@@ -60,8 +78,21 @@ class Pipo(db.Model):
             "free": self.free,
             "disabled": self.disabled,
             "toiletpaper": self.toiletpaper,
-            "babychanger": self.babychanger
+            "babychanger": self.babychanger,
+            "stars": self.get_rating(),
+            "comments":[comment.serialize() for comment in self.comments]
+            
         }
+
+
+
+    def get_rating(self):
+        total = len(self.ratings)
+        stars = 0
+        for rating in self.ratings:
+            stars += rating.stars
+        return floor(stars/total) if total > 0 else 0
+
 
 
 class Comment(db.Model):
@@ -71,6 +102,14 @@ class Comment(db.Model):
     date = db.Column(db.DateTime())
     pipo_id = db.Column(db.Integer, db.ForeignKey('pipos.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    def serialize(self):
+        return {
+            "id":self.id,
+            "comments": self.comment,
+            "date":self.date,
+            "user":self.user.username
+        }
 
 
 class Rating(db.Model):
