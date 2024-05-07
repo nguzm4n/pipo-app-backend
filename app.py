@@ -114,11 +114,12 @@ def delete_pipo(id):
 
 @app.route('/singup', methods=['POST'])
 def sign_up():
+    print(request.json)
     username = request.json.get('username')
     password = request.json.get('password')
     email = request.json.get('email')
     name = request.json.get('name')
-    birthday = request.json.get('birthday')
+    birthday = request.json.get('birthday', 2000)
 
     if not username:
         return jsonify({"msg": "username is required"}), 400
