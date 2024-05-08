@@ -112,7 +112,7 @@ def delete_pipo(id):
     return jsonify({"msg": f"Pipo con id N°{id} se ha eliminado exitosamente"})
 
 
-@app.route('/singup', methods=['POST'])
+@app.route('/signup', methods=['POST'])
 def sign_up():
     print(request.json)
     username = request.json.get('username')
