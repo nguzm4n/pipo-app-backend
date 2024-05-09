@@ -88,6 +88,7 @@ def add_pipo():
 
 
 @app.route('/pipos/<int:id>/active', methods=['GET'])
+
 def active_pipo(id):
 
     pipo = Pipo.query.get(id)
@@ -111,6 +112,7 @@ def delete_pipo(id):
     db.session.commit()
 
     return jsonify({"msg": f"Pipo con id N°{id} se ha eliminado exitosamente"})
+
 
 @app.route('/signup', methods=['POST'])
 def sign_up():
@@ -210,6 +212,34 @@ def login():
     return jsonify(datos), 201
 
 
+@app.route('/changepassword', methods=["POST"])
+@jwt_required()
+def change_password():
+    current_user_id = get_jwt_identity()
+    data = request.json
+    user = User.query.get(current_user_id)
+
+    old_password = data['old_password']
+    new_password = data['new_password']
+    confirm_password = data['confirm_password']
+
+
+    if 'old_password' not in data or 'new_password' not in data or 'confirm_password' not in data:
+        return jsonify({"msg": "All fields are required"}), 400
+
+
+    if new_password != confirm_password:
+        return jsonify({"msg": "New password and confirm password do not match"}), 400
+
+    if new_password == old_password:
+        return jsonify({"msg": "New password cannot be the same as the old password"}), 400
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"msg": "Password changed successfully"}), 200
+
+    
 @app.route('/pipo/<int:id>/rate', methods=["POST"])
 @jwt_required()  # Ruta privada
 def add_rating(id):
