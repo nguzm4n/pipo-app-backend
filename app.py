@@ -37,6 +37,7 @@ def get_pipos():
     pipos = list(map(lambda pipo: pipo.serialize(), pipos))
     return jsonify(pipos), 200
 
+
 @app.route('/pipos/<int:id>/detail', methods=['GET'])
 def get_pipos_full(id):
     pipo = Pipo.query.get(id)
@@ -111,62 +112,69 @@ def delete_pipo(id):
 
     return jsonify({"msg": f"Pipo con id N°{id} se ha eliminado exitosamente"})
 
-
 @app.route('/signup', methods=['POST'])
 def sign_up():
     print(request.json)
-    username = request.json.get('username')
-    password = request.json.get('password')
-    email = request.json.get('email')
-    name = request.json.get('name')
-    birthday = request.json.get('birthday', 2000)
+    try:
+        user_data = request.json
+        if not user_data:
+            return jsonify({"msg": "No JSON data received"}), 400
 
-    if not username:
-        return jsonify({"msg": "username is required"}), 400
-    elif username == "":
-        return jsonify({"msg": "username is required"}), 400
-    elif not password:
-        return jsonify({"msg": "password is required"}), 400
-    elif password == "":
-        return jsonify({"msg": "password is required"}), 400
-    elif not email:
-        return jsonify({"msg": "email is required"}), 400
-    elif email == "":
-        return jsonify({"msg": "email is required"}), 400
-    elif not name:
-        return jsonify({"msg": "name is required"}), 400
-    elif name == "":
-        return jsonify({"msg": "name is required"}), 400
-    elif not birthday:
-        return jsonify({"msg": "birthday is required"}), 400
+        username = user_data.get('username')
+        password = user_data.get('password')
+        email = user_data.get('email')
+        name = user_data.get('name')
+        birthday = user_data.get('birthday', 2000)
 
-    user_found = User.query.filter_by(email=email).first()
-    if user_found:
-        return jsonify({"message": "Email is already on use"}), 400
+        if not username:
+            return jsonify({"msg": "username is required"}), 400
+        elif username == "":
+            return jsonify({"msg": "username is required"}), 400
+        elif not password:
+            return jsonify({"msg": "password is required"}), 400
+        elif password == "":
+            return jsonify({"msg": "password is required"}), 400
+        elif not email:
+            return jsonify({"msg": "email is required"}), 400
+        elif email == "":
+            return jsonify({"msg": "email is required"}), 400
+        elif not name:
+            return jsonify({"msg": "name is required"}), 400
+        elif name == "":
+            return jsonify({"msg": "name is required"}), 400
+        elif not birthday:
+            return jsonify({"msg": "birthday is required"}), 400
 
-    user_found = User.query.filter_by(username=username).first()
-    if user_found:
-        return jsonify({"message": "Username is already on use"}), 400
+        user_found = User.query.filter_by(email=email).first()
+        if user_found:
+            return jsonify({"message": "Email is already in use"}), 400
 
-    user = User(
-        username=username,
-        password=generate_password_hash(password),
-        email=email,
-        name=name,
-        birthday=birthday
-    )
+        user_found = User.query.filter_by(username=username).first()
+        if user_found:
+            return jsonify({"message": "Username is already in use"}), 400
 
-    user.save()
-    if user:
-        expires = datetime.timedelta(hours=72)
-        access_token = create_access_token(
-            identity=user.id, expires_delta=expires)
-        datos = {
-            "access token": access_token,
-            "user": user.serialize()
+        user = User(
+            username=username,
+            password=generate_password_hash(password),
+            email=email,
+            name=name,
+            birthday=birthday
+        )
 
-        }
-        return jsonify(datos), 201
+        user.save()
+        if user:
+            expires = datetime.timedelta(hours=72)
+            access_token = create_access_token(
+                identity=user.id, expires_delta=expires)
+            datos = {
+                "access_token": access_token,
+                "user": user.serialize()
+
+            }
+            return jsonify(datos), 201
+
+    except Exception as e:
+        return jsonify({"msg": "Error processing JSON data"}), 400
 
 
 @app.route('/login', methods=["POST"])
@@ -174,7 +182,7 @@ def login():
 
     password = request.json.get('password')
     email = request.json.get('email')
-
+    print(request.json)
     if not password:
         return jsonify({"msg": "password is required"}), 400
     elif password == "":
@@ -228,9 +236,8 @@ def add_rating(id):
     else:
         rate.stars = rating["stars"]
         db.session.commit()
-        
-    return jsonify({"msg": "Pipo Succesfully Rated "})
 
+    return jsonify({"msg": "Pipo Succesfully Rated "})
 
 
 @app.route('/pipo/<int:id>/comment', methods=["POST"])
@@ -243,7 +250,8 @@ def add_comment(id):
     comment = request.json
     user_id = get_jwt_identity()
 
-    comentario = Comment.query.filter_by(user_id=user_id, pipo_id=pipo.id).first()
+    comentario = Comment.query.filter_by(
+        user_id=user_id, pipo_id=pipo.id).first()
 
     if not comentario:
 
@@ -263,6 +271,7 @@ def add_comment(id):
         db.session.commit()
 
     return jsonify({"msg": "Pipo Succesfully Commented  "})
+
 
 with app.app_context():
     db.create_all()
