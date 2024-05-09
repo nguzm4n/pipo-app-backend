@@ -63,7 +63,8 @@ class Pipo(db.Model):
             "disabled": self.disabled,
             "toiletpaper": self.toiletpaper,
             "babychanger": self.babychanger,
-            "stars": self.get_rating()
+            "stars": self.get_rating(),
+            "comments":[comment.serialize() for comment in self.comments]
 
         }
 

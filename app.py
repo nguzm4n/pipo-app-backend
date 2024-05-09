@@ -1,4 +1,5 @@
 import os
+import datetime
 from flask import Flask, jsonify, request, json
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -6,7 +7,6 @@ from dotenv import load_dotenv  # Para leer el archivo .env
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 from models import db, User, Pipo, Comment, Rating
-import datetime
 
 load_dotenv()
 
@@ -158,7 +158,7 @@ def sign_up():
 
     user.save()
     if user:
-        expires = datetime.timedelta(hours=1)
+        expires = datetime.timedelta(hours=72)
         access_token = create_access_token(
             identity=user.id, expires_delta=expires)
         datos = {
@@ -196,7 +196,7 @@ def login():
     access_token = create_access_token(
         identity=user_found.id, expires_delta=expires)
     datos = {
-        "access token": access_token,
+        "access_token": access_token,
         "user": user_found.serialize()
     }
     return jsonify(datos), 201
