@@ -74,10 +74,10 @@ def add_pipo():
         pipo_name=pipo_info["pipo_name"],
         longitude=float(pipo_info["longitude"]),
         latitude=float(pipo_info["latitude"]),
-        free=False if not "free" in pipo_info else True,
-        disabled=False if not "disabled" in pipo_info else True,
-        toiletpaper=False if not "toiletpaper" in pipo_info else True,
-        babychanger=False if not "babychanger" in pipo_info else True,
+        free=False if not "free" in pipo_info else pipo_info["free"],
+        disabled=False if not "disabled" in pipo_info else pipo_info["disabled"],
+        toiletpaper=False if not "toiletpaper" in pipo_info else pipo_info["toiletpaper"],
+        babychanger=False if not "babychanger" in pipo_info else pipo_info["babychanger"],
         address=pipo_info["address"],
         user_id=id
     )
@@ -85,7 +85,7 @@ def add_pipo():
     db.session.add(pipo)
     db.session.commit()
 
-    return jsonify({"msg": "Location added succesfully"})
+    return jsonify({"success": "Location added succesfully", "pipo": pipo.serialize()})
 
 
 @app.route('/pipos/<int:id>/active', methods=['GET'])
@@ -103,7 +103,7 @@ def active_pipo(id):
     pipo.active = True
     db.session.commit()
 
-    return jsonify({"": f"Pipo {id} fue activado con éxito"}), 200
+    return jsonify({"success": f"Pipo {id} fue activado con éxito"}), 200
 
 
 @app.route('/pipos/<int:id>/delete', methods=['DELETE'])
@@ -116,7 +116,7 @@ def delete_pipo(id):
     db.session.delete(pipo)
     db.session.commit()
 
-    return jsonify({"msg": f"Pipo con id N°{id} se ha eliminado exitosamente"})
+    return jsonify({"success": f"Pipo con id N°{id} se ha eliminado exitosamente"})
 
 
 @app.route('/signup', methods=['POST'])
@@ -132,6 +132,7 @@ def sign_up():
         email = user_data.get('email')
         name = user_data.get('name')
         birthday = user_data.get('birthday', 2000)
+        confirm_password = user_data.get('confirmPassword')
 
         if not username:
             return jsonify({"msg": "username is required"}), 400
@@ -154,11 +155,11 @@ def sign_up():
 
         user_found = User.query.filter_by(email=email).first()
         if user_found:
-            return jsonify({"message": "Email is already in use"}), 400
+            return jsonify({"msg": "Email is already in use"}), 400
 
         user_found = User.query.filter_by(username=username).first()
         if user_found:
-            return jsonify({"message": "Username is already in use"}), 400
+            return jsonify({"msg": "Username is already in use"}), 400
 
         user = User(
             username=username,
@@ -178,7 +179,7 @@ def sign_up():
                 "user": user.serialize()
 
             }
-            return jsonify(datos), 201
+            return jsonify({"success" : "User registered successfully", "datos":datos}), 201
 
     except Exception as e:
         return jsonify({"msg": "Error processing JSON data"}), 400
@@ -202,10 +203,10 @@ def login():
     user_found = User.query.filter_by(email=email).first()
 
     if not user_found:
-        return jsonify({"message": "email or password is not correct"}), 401
+        return jsonify({"msg": "email or password is not correct"}), 401
 
     if not check_password_hash(user_found.password, password):
-        return jsonify({"message": "email or password is not correct"}), 401
+        return jsonify({"msg": "email or password is not correct"}), 401
 
     expires = datetime.timedelta(hours=72)
     access_token = create_access_token(
@@ -246,7 +247,7 @@ def change_password():
     user.password = generate_password_hash(new_password)
     db.session.commit()
 
-    return jsonify({"msg": "Password changed successfully"}, data), 200
+    return jsonify({"success": "Password changed successfully", "data": data}), 200
 
 @app.route('/recover_password', methods=["POST"])
 def recover_pass():
