@@ -1,12 +1,13 @@
 import os
 import datetime
+from random import randint
 from flask import Flask, jsonify, request, json
 from flask_migrate import Migrate
 from flask_cors import CORS
 from dotenv import load_dotenv  # Para leer el archivo .env
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Pipo, Comment, Rating
+from models import db, User, Pipo, Comment, Rating, RecoverPassword
 
 load_dotenv()
 
@@ -246,6 +247,51 @@ def change_password():
     db.session.commit()
 
     return jsonify({"msg": "Password changed successfully"}, data), 200
+
+@app.route('/recover_password', methods=["POST"])
+def recover_pass():
+    print(request.json)
+    email = request.json.get('email')
+    
+    num = randint(100000, 999999)
+    print(num)
+
+    recover = RecoverPassword(
+        email=email,
+        code=num,  # Set code to num
+        active=True
+    )
+    db.session.add(recover)
+    db.session.commit()
+    
+    if not recover: return jsonify({"msg":"error al generar codigo"}), 400
+    return jsonify(recover.serialize()), 200
+
+@app.route('/reset_password', methods=["POST"])
+def reset_password():
+    email = request.json.get('email')
+    code = request.json.get('code')
+    password = request.json.get('password')
+    
+    valid = RecoverPassword.query.filter_by(email=email, code=code, active=True).first()
+
+    if not valid:
+        return "error"
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return "error"
+
+    # new password
+    new_password = generate_password_hash(password)
+    user.password = new_password
+
+    db.session.commit()
+    if user:
+        valid.active=False
+        db.session.commit()
+
+    return jsonify({"msg": "Password changed successfully"}), 200
 
     
 @app.route('/pipo/<int:id>/rate', methods=["POST"])
