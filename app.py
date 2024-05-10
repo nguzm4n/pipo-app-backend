@@ -1,12 +1,13 @@
 import os
+import datetime
+from random import randint
 from flask import Flask, jsonify, request, json
 from flask_migrate import Migrate
 from flask_cors import CORS
 from dotenv import load_dotenv  # Para leer el archivo .env
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Pipo, Comment, Rating
-import datetime
+from models import db, User, Pipo, Comment, Rating, RecoverPassword
 
 load_dotenv()
 
@@ -36,6 +37,7 @@ def get_pipos():
     pipos = Pipo.query.all()
     pipos = list(map(lambda pipo: pipo.serialize(), pipos))
     return jsonify(pipos), 200
+
 
 @app.route('/pipos/<int:id>/detail', methods=['GET'])
 def get_pipos_full(id):
@@ -87,16 +89,21 @@ def add_pipo():
 
 
 @app.route('/pipos/<int:id>/active', methods=['GET'])
+@jwt_required()
 def active_pipo(id):
-
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     pipo = Pipo.query.get(id)
+
+
     if not pipo:
         return jsonify({"msg": "Pipo Not Found"}), 404
-
+    if not user.admin :
+        return jsonify({"msg": "You are not allowed to do this"}), 400
     pipo.active = True
     db.session.commit()
 
-    return jsonify({"msg": f"Pipo {id} fue activado con éxito"}), 200
+    return jsonify({"success": f"Pipo {id} fue activado con éxito"}), 200
 
 
 @app.route('/pipos/<int:id>/delete', methods=['DELETE'])
@@ -115,58 +122,66 @@ def delete_pipo(id):
 @app.route('/signup', methods=['POST'])
 def sign_up():
     print(request.json)
-    username = request.json.get('username')
-    password = request.json.get('password')
-    email = request.json.get('email')
-    name = request.json.get('name')
-    birthday = request.json.get('birthday', 2000)
+    try:
+        user_data = request.json
+        if not user_data:
+            return jsonify({"msg": "No JSON data received"}), 400
 
-    if not username:
-        return jsonify({"msg": "username is required"}), 400
-    elif username == "":
-        return jsonify({"msg": "username is required"}), 400
-    elif not password:
-        return jsonify({"msg": "password is required"}), 400
-    elif password == "":
-        return jsonify({"msg": "password is required"}), 400
-    elif not email:
-        return jsonify({"msg": "email is required"}), 400
-    elif email == "":
-        return jsonify({"msg": "email is required"}), 400
-    elif not name:
-        return jsonify({"msg": "name is required"}), 400
-    elif name == "":
-        return jsonify({"msg": "name is required"}), 400
-    elif not birthday:
-        return jsonify({"msg": "birthday is required"}), 400
+        username = user_data.get('username')
+        password = user_data.get('password')
+        email = user_data.get('email')
+        name = user_data.get('name')
+        birthday = user_data.get('birthday', 2000)
 
-    user_found = User.query.filter_by(email=email).first()
-    if user_found:
-        return jsonify({"message": "Email is already on use"}), 400
+        if not username:
+            return jsonify({"msg": "username is required"}), 400
+        elif username == "":
+            return jsonify({"msg": "username is required"}), 400
+        elif not password:
+            return jsonify({"msg": "password is required"}), 400
+        elif password == "":
+            return jsonify({"msg": "password is required"}), 400
+        elif not email:
+            return jsonify({"msg": "email is required"}), 400
+        elif email == "":
+            return jsonify({"msg": "email is required"}), 400
+        elif not name:
+            return jsonify({"msg": "name is required"}), 400
+        elif name == "":
+            return jsonify({"msg": "name is required"}), 400
+        elif not birthday:
+            return jsonify({"msg": "birthday is required"}), 400
 
-    user_found = User.query.filter_by(username=username).first()
-    if user_found:
-        return jsonify({"message": "Username is already on use"}), 400
+        user_found = User.query.filter_by(email=email).first()
+        if user_found:
+            return jsonify({"message": "Email is already in use"}), 400
 
-    user = User(
-        username=username,
-        password=generate_password_hash(password),
-        email=email,
-        name=name,
-        birthday=birthday
-    )
+        user_found = User.query.filter_by(username=username).first()
+        if user_found:
+            return jsonify({"message": "Username is already in use"}), 400
 
-    user.save()
-    if user:
-        expires = datetime.timedelta(hours=1)
-        access_token = create_access_token(
-            identity=user.id, expires_delta=expires)
-        datos = {
-            "access token": access_token,
-            "user": user.serialize()
+        user = User(
+            username=username,
+            password=generate_password_hash(password),
+            email=email,
+            name=name,
+            birthday=birthday
+        )
 
-        }
-        return jsonify(datos), 201
+        user.save()
+        if user:
+            expires = datetime.timedelta(hours=72)
+            access_token = create_access_token(
+                identity=user.id, expires_delta=expires)
+            datos = {
+                "access_token": access_token,
+                "user": user.serialize()
+
+            }
+            return jsonify(datos), 201
+
+    except Exception as e:
+        return jsonify({"msg": "Error processing JSON data"}), 400
 
 
 @app.route('/login', methods=["POST"])
@@ -174,7 +189,7 @@ def login():
 
     password = request.json.get('password')
     email = request.json.get('email')
-
+    print(request.json)
     if not password:
         return jsonify({"msg": "password is required"}), 400
     elif password == "":
@@ -196,12 +211,85 @@ def login():
     access_token = create_access_token(
         identity=user_found.id, expires_delta=expires)
     datos = {
-        "access token": access_token,
+        "access_token": access_token,
         "user": user_found.serialize()
     }
     return jsonify(datos), 201
 
 
+@app.route('/changepassword', methods=["POST"])
+@jwt_required()
+def change_password():
+    current_user_id = get_jwt_identity()
+    data = request.json
+    user = User.query.get(current_user_id)
+
+    old_password = data['old_password']
+    new_password = data['new_password']
+    confirm_password = data['confirm_password']
+
+
+    if 'old_password' not in data or 'new_password' not in data or 'confirm_password' not in data:
+        return jsonify({"msg": "All fields are required"}), 400
+
+
+    if new_password != confirm_password:
+        return jsonify({"msg": "New password and confirm password do not match"}), 400
+
+    if new_password == old_password:
+        return jsonify({"msg": "New password cannot be the same as the old password"}), 400
+
+    user.password = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"msg": "Password changed successfully"}), 200
+
+@app.route('/recover_password', methods=["POST"])
+def recover_pass():
+    print(request.json)
+    email = request.json.get('email')
+    
+    num = randint(100000, 999999)
+    print(num)
+
+    recover = RecoverPassword(
+        email=email,
+        code=num,  # Set code to num
+        active=True
+    )
+    db.session.add(recover)
+    db.session.commit()
+    
+    if not recover: return jsonify({"msg":"error al generar codigo"}), 400
+    return jsonify(recover.serialize()), 200
+
+@app.route('/reset_password', methods=["POST"])
+def reset_password():
+    email = request.json.get('email')
+    code = request.json.get('code')
+    password = request.json.get('password')
+    
+    valid = RecoverPassword.query.filter_by(email=email, code=code, active=True).first()
+
+    if not valid:
+        return "error"
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return "error"
+
+    # new password
+    new_password = generate_password_hash(password)
+    user.password = new_password
+
+    db.session.commit()
+    if user:
+        valid.active=False
+        db.session.commit()
+
+    return jsonify({"msg": "Password changed successfully"}), 200
+
+    
 @app.route('/pipo/<int:id>/rate', methods=["POST"])
 @jwt_required()  # Ruta privada
 def add_rating(id):
@@ -228,9 +316,8 @@ def add_rating(id):
     else:
         rate.stars = rating["stars"]
         db.session.commit()
-        
-    return jsonify({"msg": "Pipo Succesfully Rated "})
 
+    return jsonify({"msg": "Pipo Succesfully Rated "})
 
 
 @app.route('/pipo/<int:id>/comment', methods=["POST"])
@@ -243,7 +330,8 @@ def add_comment(id):
     comment = request.json
     user_id = get_jwt_identity()
 
-    comentario = Comment.query.filter_by(user_id=user_id, pipo_id=pipo.id).first()
+    comentario = Comment.query.filter_by(
+        user_id=user_id, pipo_id=pipo.id).first()
 
     if not comentario:
 
@@ -263,6 +351,7 @@ def add_comment(id):
         db.session.commit()
 
     return jsonify({"msg": "Pipo Succesfully Commented  "})
+
 
 with app.app_context():
     db.create_all()
