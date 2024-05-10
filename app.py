@@ -102,7 +102,7 @@ def active_pipo(id):
     pipo.active = True
     db.session.commit()
 
-    return jsonify({"success": f"Pipo {id} fue activado con éxito"}), 200
+    return jsonify({"": f"Pipo {id} fue activado con éxito"}), 200
 
 
 @app.route('/pipos/<int:id>/delete', methods=['DELETE'])
@@ -228,7 +228,11 @@ def change_password():
     confirm_password = data['confirm_password']
 
 
+
     if 'old_password' not in data or 'new_password' not in data or 'confirm_password' not in data:
+        return jsonify({"msg": "All fields are required"}), 400
+
+    if old_password == "":
         return jsonify({"msg": "All fields are required"}), 400
 
 
@@ -241,7 +245,7 @@ def change_password():
     user.password = generate_password_hash(new_password)
     db.session.commit()
 
-    return jsonify({"msg": "Password changed successfully"}), 200
+    return jsonify({"msg": "Password changed successfully"}, data), 200
 
     
 @app.route('/pipo/<int:id>/rate', methods=["POST"])
