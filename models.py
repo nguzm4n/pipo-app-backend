@@ -28,6 +28,7 @@ class User(db.Model):
             "avatar": self.avatar,
             "email": self.email,
             "birthday": self.birthday,
+            "admin": self.admin
         }
 
     def save(self):

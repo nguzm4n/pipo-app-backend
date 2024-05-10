@@ -89,17 +89,21 @@ def add_pipo():
 
 
 @app.route('/pipos/<int:id>/active', methods=['GET'])
-
+@jwt_required()
 def active_pipo(id):
-
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
     pipo = Pipo.query.get(id)
+
+
     if not pipo:
         return jsonify({"msg": "Pipo Not Found"}), 404
-
+    if not user.admin :
+        return jsonify({"msg": "You are not allowed to do this"}), 400
     pipo.active = True
     db.session.commit()
 
-    return jsonify({"msg": f"Pipo {id} fue activado con éxito"}), 200
+    return jsonify({"success": f"Pipo {id} fue activado con éxito"}), 200
 
 
 @app.route('/pipos/<int:id>/delete', methods=['DELETE'])
