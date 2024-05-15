@@ -132,7 +132,7 @@ def sign_up():
         email = user_data.get('email')
         name = user_data.get('name')
         birthday = user_data.get('birthday', 2000)
-        confirm_password = user_data.get('confirmPassword')
+
 
         if not username:
             return jsonify({"msg": "username is required"}), 400
