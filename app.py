@@ -54,21 +54,21 @@ def add_pipo():
     id = get_jwt_identity()
 
     if not 'pipo_name' in pipo_info:
-        return jsonify({"msg": "name is required"}), 400
+        return jsonify({"msg": "Pipo Name is missing!"}), 400
     elif pipo_info["pipo_name"] == "":
-        return jsonify({"msg": "name is required"}), 400
+        return jsonify({"msg": "Pipo Name is missing!"}), 400
     elif not 'longitude' in pipo_info:
-        return jsonify({"msg": "longitude is required"}), 400
+        return jsonify({"msg": "Longitude is missing!"}), 400
     elif pipo_info["longitude"] == "":
-        return jsonify({"msg": "longitude is required"}), 400
+        return jsonify({"msg": "Longitude is missing!"}), 400
     elif not 'latitude' in pipo_info:
-        return jsonify({"msg": "latitude is required"}), 400
+        return jsonify({"msg": "Latitude is missing!"}), 400
     elif pipo_info["latitude"] == "":
-        return jsonify({"msg": "latitude is required"}), 400
+        return jsonify({"msg": "Latitude is missing!"}), 400
     elif not 'address' in pipo_info:
-        return jsonify({"msg": "Address is required"}), 400
+        return jsonify({"msg": "Pipo Address is missing!"}), 400
     elif pipo_info["address"] == "":
-        return jsonify({"msg": "Address is required"}), 400
+        return jsonify({"msg": "Pipo Address is missing!"}), 400
 
     pipo = Pipo(
         pipo_name=pipo_info["pipo_name"],
@@ -85,7 +85,7 @@ def add_pipo():
     db.session.add(pipo)
     db.session.commit()
 
-    return jsonify({"success": "Location added succesfully", "pipo": pipo.serialize()})
+    return jsonify({"success": "Your pipo is waiting for review", "pipo": pipo.serialize()})
 
 
 @app.route('/pipos/<int:id>/active', methods=['GET'])
@@ -132,7 +132,7 @@ def sign_up():
         email = user_data.get('email')
         name = user_data.get('name')
         birthday = user_data.get('birthday', 2000)
-        confirm_password = user_data.get('confirmPassword')
+
 
         if not username:
             return jsonify({"msg": "username is required"}), 400
@@ -322,7 +322,7 @@ def add_rating(id):
         rate.stars = rating["stars"]
         db.session.commit()
 
-    return jsonify({"msg": "Pipo Succesfully Rated "})
+    return jsonify({"success": "Pipo Succesfully Rated "})
 
 
 @app.route('/pipo/<int:id>/comment', methods=["POST"])
@@ -335,9 +335,13 @@ def add_comment(id):
     comment = request.json
     user_id = get_jwt_identity()
 
+    if "comment" not in comment or not comment["comment"].strip():
+        return jsonify({"msg": "Comment cannot be empty"}), 400
+
     comentario = Comment.query.filter_by(
         user_id=user_id, pipo_id=pipo.id).first()
 
+    
     if not comentario:
 
         new_comment = Comment(
@@ -347,7 +351,7 @@ def add_comment(id):
             date=datetime.datetime.now()
 
         )
-
+    
         db.session.add(new_comment)
         db.session.commit()
 
@@ -355,7 +359,7 @@ def add_comment(id):
         comentario.comment = comment["comment"]
         db.session.commit()
 
-    return jsonify({"msg": "Pipo Succesfully Commented  "})
+    return jsonify({"success": "Pipo Succesfully Commented  "})
 
 
 with app.app_context():
