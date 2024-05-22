@@ -67,7 +67,8 @@ class Pipo(db.Model):
             "toiletpaper": self.toiletpaper,
             "babychanger": self.babychanger,
             "stars": self.get_rating(),
-            "comments":[comment.serialize() for comment in self.comments]
+            "comments":[comment.serialize() for comment in self.comments],
+            "ratings": [rating.serialize() for rating in self.ratings]
 
         }
 
@@ -112,6 +113,7 @@ class Comment(db.Model):
             "id":self.id,
             "comments": self.comment,
             "date":self.date,
+            "user_id": self.user_id,
             "user":self.user.username
         }
 
@@ -122,8 +124,14 @@ class Rating(db.Model):
     stars = db.Column(db.Integer)
     pipo_id = db.Column(db.Integer, db.ForeignKey('pipos.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    
 
+    def serialize(self):
+        return {
+            "id": self.id,
+            "stars": self.stars,
+            "pipo_id": self.pipo_id,
+            "user_id": self.user_id
+        }
 
 
 class RecoverPassword(db.Model):
