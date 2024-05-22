@@ -57,6 +57,10 @@ def add_pipo():
         return jsonify({"msg": "Pipo Name is missing!"}), 400
     elif pipo_info["pipo_name"] == "":
         return jsonify({"msg": "Pipo Name is missing!"}), 400
+    elif not 'address' in pipo_info:
+        return jsonify({"msg": "Pipo Address is missing!"}), 400
+    elif pipo_info["address"] == "":
+        return jsonify({"msg": "Pipo Address is missing!"}), 400
     elif not 'longitude' in pipo_info:
         return jsonify({"msg": "Longitude is missing!"}), 400
     elif pipo_info["longitude"] == "":
@@ -65,10 +69,6 @@ def add_pipo():
         return jsonify({"msg": "Latitude is missing!"}), 400
     elif pipo_info["latitude"] == "":
         return jsonify({"msg": "Latitude is missing!"}), 400
-    elif not 'address' in pipo_info:
-        return jsonify({"msg": "Pipo Address is missing!"}), 400
-    elif pipo_info["address"] == "":
-        return jsonify({"msg": "Pipo Address is missing!"}), 400
 
     pipo = Pipo(
         pipo_name=pipo_info["pipo_name"],
@@ -85,7 +85,7 @@ def add_pipo():
     db.session.add(pipo)
     db.session.commit()
 
-    return jsonify({"success": "Your pipo is waiting for review", "pipo": pipo.serialize()})
+    return jsonify({"success": "Your PIPO Is Waiting For Review", "pipo": pipo.serialize()})
 
 
 @app.route('/pipos/<int:id>/active', methods=['GET'])
@@ -95,10 +95,9 @@ def active_pipo(id):
     user = User.query.get(current_user_id)
     pipo = Pipo.query.get(id)
 
-
     if not pipo:
         return jsonify({"msg": "Pipo Not Found"}), 404
-    if not user.admin :
+    if not user.admin:
         return jsonify({"msg": "You are not allowed to do this"}), 400
     pipo.active = True
     db.session.commit()
@@ -132,7 +131,6 @@ def sign_up():
         email = user_data.get('email')
         name = user_data.get('name')
         birthday = user_data.get('birthday', 2000)
-
 
         if not username:
             return jsonify({"msg": "username is required"}), 400
@@ -179,7 +177,7 @@ def sign_up():
                 "user": user.serialize()
 
             }
-            return jsonify({"success" : "User registered successfully", "datos":datos}), 201
+            return jsonify({"success": "Welcome! Your Registration was Successful", "datos": datos}), 201
 
     except Exception as e:
         return jsonify({"msg": "Error processing JSON data"}), 400
@@ -191,22 +189,23 @@ def login():
     password = request.json.get('password')
     email = request.json.get('email')
     print(request.json)
+    if not email:
+        return jsonify({"msg": "Email is required."}), 400
+    if email == "":
+        return jsonify({"msg": "Email is required."}), 400
     if not password:
-        return jsonify({"msg": "password is required"}), 400
+        return jsonify({"msg": "Password is required."}), 400
     elif password == "":
-        return jsonify({"msg": "password is required"}), 400
-    elif not email:
-        return jsonify({"msg": "email is required"}), 400
-    elif email == "":
-        return jsonify({"msg": "email is required"}), 400
+        return jsonify({"msg": "Password is required."}), 400
+    
 
     user_found = User.query.filter_by(email=email).first()
 
     if not user_found:
-        return jsonify({"msg": "email or password is not correct"}), 401
+        return jsonify({"msg": "Email or password is not correct."}), 401
 
     if not check_password_hash(user_found.password, password):
-        return jsonify({"msg": "email or password is not correct"}), 401
+        return jsonify({"msg": "Email or password is not correct."}), 401
 
     expires = datetime.timedelta(hours=72)
     access_token = create_access_token(
@@ -229,14 +228,13 @@ def change_password():
     new_password = data['new_password']
     confirm_password = data['confirm_password']
 
-
-
     if 'old_password' not in data or 'new_password' not in data or 'confirm_password' not in data:
         return jsonify({"msg": "All fields are required"}), 400
 
     if old_password == "":
         return jsonify({"msg": "All fields are required"}), 400
-
+    if new_password == "":
+        return jsonify({"msg": "New password field is missing"}), 400
 
     if new_password != confirm_password:
         return jsonify({"msg": "New password and confirm password do not match"}), 400
@@ -247,16 +245,19 @@ def change_password():
     user.password = generate_password_hash(new_password)
     db.session.commit()
 
-    return jsonify({"success": "Password changed successfully", "data": data}), 200
+    return jsonify({"success": "Password successfully changed", "data": data}), 200
+
 
 @app.route('/recover_password', methods=["POST"])
 def recover_pass():
     print(request.json)
     email = request.json.get('email')
-    
+
     num = randint(100000, 999999)
     print(num)
 
+    if not email:
+        return jsonify({"msg": "Email is missing."})
     recover = RecoverPassword(
         email=email,
         code=num,  # Set code to num
@@ -264,21 +265,28 @@ def recover_pass():
     )
     db.session.add(recover)
     db.session.commit()
-    
-    if not recover: return jsonify({"msg":"error al generar codigo"}), 400
+
+    if not recover: return jsonify({"msg": "error al generar codigo"}), 400
     return jsonify(recover.serialize()), 200
+
 
 @app.route('/reset_password', methods=["POST"])
 def reset_password():
     email = request.json.get('email')
     code = request.json.get('code')
     password = request.json.get('password')
-    
-    valid = RecoverPassword.query.filter_by(email=email, code=code, active=True).first()
 
+    valid = RecoverPassword.query.filter_by(
+        email=email, code=code, active=True).first()
+
+    if not email:
+        return jsonify({"msg": "Email missing"}), 400
+    if not code:
+        return jsonify({"msg": "Code missing"}), 400
+   
     if not valid:
         return "error"
-
+    
     user = User.query.filter_by(email=email).first()
     if not user:
         return "error"
@@ -292,7 +300,7 @@ def reset_password():
         valid.active=False
         db.session.commit()
 
-    return jsonify({"msg": "Password changed successfully"}), 200
+    return jsonify({"success": "Password successfully changed"}), 200
 
     
 @app.route('/pipo/<int:id>/rate', methods=["POST"])
